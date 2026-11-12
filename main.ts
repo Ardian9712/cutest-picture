@@ -1,7 +1,8 @@
 // Entry for make.fun's cutest-picture-01 contest (Node 22, standard library only).
 //
-// The picture: entry.png beside this file -- a cream baby seal pup with big
-// eyes and a pale blue bow (a JPEG in spite of its .png name, which the gate
+// The picture: entry.png beside this file -- a cream baby seal pup with big eyes
+// and a pale blue bow, hugging a tiny yellow duckling, in soft pastel plush style
+// on a clean cream background (a JPEG in spite of its .png name, which the gate
 // allows: the first bytes tell the format, and the bytes are what count). This
 // program's whole job is to deliver those exact bytes to the grader's output
 // directory. Nothing is decoded or re-encoded: the judge sees exactly the bytes
@@ -43,14 +44,32 @@ if (pictureBytes.byteLength > MAX_PICTURE_BYTES) {
   process.exit(1);
 }
 
-// Guard 3: make sure the destination directory exists before writing into it.
+// The gate takes a PNG or a JPEG, told apart by its first bytes: check the
+// signature before writing, so a corrupt or misnamed file never becomes the entry.
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const JPEG_SIGNATURE = Buffer.from([0xff, 0xd8, 0xff]);
+
+// Guard 3: the picture must actually be a PNG or a JPEG by its first bytes.
+const looksLikePng = pictureBytes.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE);
+const looksLikeJpeg = pictureBytes.subarray(0, JPEG_SIGNATURE.length).equals(JPEG_SIGNATURE);
+if (!looksLikePng && !looksLikeJpeg) {
+  const firstBytes = [...pictureBytes.subarray(0, 4)]
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join(' ');
+  console.error(
+    `error: '${PICTURE_NAME}' is neither a PNG nor a JPEG (first bytes: ${firstBytes})`
+  );
+  process.exit(1);
+}
+
+// Guard 4: make sure the destination directory exists before writing into it.
 const outputDir = process.env.MAKEFUN_OUTPUT_DIR ?? DEFAULT_OUTPUT_DIR;
 mkdirSync(outputDir, { recursive: true });
 
 const targetPath = resolve(outputDir, PICTURE_NAME);
 writeFileSync(targetPath, pictureBytes);
 
-// Guard 4: confirm the file that actually landed on disk is within the limit,
+// Guard 5: confirm the file that actually landed on disk is within the limit,
 // since the grader reads that file and nothing else.
 const writtenBytes = statSync(targetPath).size;
 if (writtenBytes > MAX_PICTURE_BYTES) {
